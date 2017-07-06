@@ -11,7 +11,8 @@ import keras_frcnn.resnet as nn
 from keras import backend as K
 from keras.layers import Input
 from keras.models import Model
-from keras_frcnn import roi_helpers
+from keras_frcnn import roi_helpers, data_generators
+
 
 sys.setrecursionlimit(40000)
 
@@ -46,34 +47,14 @@ def format_img_size(img, C):
 	""" formats the image size based on config """
 	img_min_side = float(C.im_size)
 	(height,width,_) = img.shape
-		
-	if width <= height:
-		ratio = img_min_side/width
-		new_height = int(ratio * height)
-		new_width = int(img_min_side)
-	else:
-		ratio = img_min_side/height
-		new_width = int(ratio * width)
-		new_height = int(img_min_side)
+	(resized_width, resized_height, ratio) = data_generators.get_new_img_size(width, height, C.im_size)
 	img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
 	return img, ratio	
-
-def format_img_channels(img, C):
-	""" formats the image channels based on config """
-	img = img[:, :, (2, 1, 0)]
-	img = img.astype(np.float32)
-	img[:, :, 0] -= C.img_channel_mean[0]
-	img[:, :, 1] -= C.img_channel_mean[1]
-	img[:, :, 2] -= C.img_channel_mean[2]
-	img /= C.img_scaling_factor
-	img = np.transpose(img, (2, 0, 1))
-	img = np.expand_dims(img, axis=0)
-	return img
 
 def format_img(img, C):
 	""" formats an image for model prediction based on config """
 	img, ratio = format_img_size(img, C)
-	img = format_img_channels(img, C)
+	img = data_generators.normalize_img(img, C)
 	return img, ratio
 
 # Method to transform the coordinates of the bounding box to its original size
@@ -128,13 +109,7 @@ model_classifier.load_weights(C.model_path, by_name=True)
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
 
-all_imgs = []
-
-classes = {}
-
 bbox_threshold = 0.8
-
-visualise = True
 
 for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 	if not img_name.lower().endswith(('.bmp', '.jpeg', '.jpg', '.png', '.tif', '.tiff')):
@@ -210,11 +185,12 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 
 	for key in bboxes:
 		bbox = np.array(bboxes[key])
-
+		# Eliminating redundant object detection windows
 		new_boxes, new_probs = roi_helpers.non_max_suppression_fast(bbox, np.array(probs[key]), overlap_thresh=0.5)
 		for jk in range(new_boxes.shape[0]):
 			(x1, y1, x2, y2) = new_boxes[jk,:]
 
+			# Converting predicted picture box coordinates to real-size picture bounding box coordinates
 			(real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
 
 			cv2.rectangle(img,(real_x1, real_y1), (real_x2, real_y2), (int(class_to_color[key][0]), int(class_to_color[key][1]), int(class_to_color[key][2])),2)
@@ -223,7 +199,16 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 			all_dets.append((key,100*new_probs[jk]))
 
 			(retval,baseLine) = cv2.getTextSize(textLabel,cv2.FONT_HERSHEY_COMPLEX,1,1)
-			textOrg = (real_x1, real_y1-0)
+            
+            # To avoid putting text outside the frame
+            # if the legend is over the upside of the frame
+            if real_y1 < 20 and real_y2 < img.shape[0]:
+                textOrg = (real_x1, real_y2+5)
+            # if the legend is below the downside of the frame  
+            elif real_y1 < 20 and real_y2 > img.shape[0]:
+                textOrg = (real_x1, img.shape[0]-10)
+            else:
+                textOrg = (real_x1, real_y1)
 
 			cv2.rectangle(img, (textOrg[0] - 5, textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (0, 0, 0), 2)
 			cv2.rectangle(img, (textOrg[0] - 5,textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (255, 255, 255), -1)

@@ -54,6 +54,9 @@ def iou(a, b):
 
 
 def get_new_img_size(width, height, img_min_side=600):
+	"""
+	Get the resized shape, keeping the same ratio
+	"""
 	if width <= height:
 		f = float(img_min_side) / width
 		resized_height = int(f * height)
@@ -63,9 +66,20 @@ def get_new_img_size(width, height, img_min_side=600):
 		resized_width = int(f * width)
 		resized_height = img_min_side
 
-	return resized_width, resized_height
+	return resized_width, resized_height, f
 
+def normalize_img(x_img, C):
+	# Zero-center by mean pixel, and preprocess image
+	x_img = x_img[:,:, (2, 1, 0)]  # BGR -> RGB
+	x_img = x_img.astype(np.float32)
+	x_img[:, :, 0] -= C.img_channel_mean[0]
+	x_img[:, :, 1] -= C.img_channel_mean[1]
+	x_img[:, :, 2] -= C.img_channel_mean[2]
+	x_img /= C.img_scaling_factor
 
+	x_img = np.transpose(x_img, (2, 0, 1))
+	x_img = np.expand_dims(x_img, axis=0)
+	return x_img
 
 
 class SampleSelector:
@@ -329,16 +343,7 @@ def get_anchor_gt(all_img_data, class_count, C, backend, mode='train'):
 					continue
 
 				# Zero-center by mean pixel, and preprocess image
-
-				x_img = x_img[:,:, (2, 1, 0)]  # BGR -> RGB
-				x_img = x_img.astype(np.float32)
-				x_img[:, :, 0] -= C.img_channel_mean[0]
-				x_img[:, :, 1] -= C.img_channel_mean[1]
-				x_img[:, :, 2] -= C.img_channel_mean[2]
-				x_img /= C.img_scaling_factor
-
-				x_img = np.transpose(x_img, (2, 0, 1))
-				x_img = np.expand_dims(x_img, axis=0)
+				x_img = normalize_img(x_img, C)
 
 				y_rpn_regr[:, y_rpn_regr.shape[1]//2:, :, :] *= C.std_scaling
 
