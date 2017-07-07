@@ -3,9 +3,10 @@ Keras implementation of Faster R-CNN: Towards Real-Time Object Detection with Re
 
 
 USAGE:
-- Both theano and tensorflow backends are supported. However compile times are very high in theano, and tensorflow is highly recommended.
+- Both theano and tensorflow backends are supported. However compile times are very high in theano, and tensorflow is highly recommended.  
+- Both python2 and python3 are supported.   
 - `train_frcnn.py` can be used to train a model. To train on Pascal VOC data, simply do:
-`python train_frcnn.py -p /path/to/pascalvoc/`. 
+`python train_frcnn.py -p /path/to/pascalvoc/`.  
 - the Pascal VOC data set (images and annotations for bounding boxes around the classified objects) can be obtained from: http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar
 - simple_parser.py provides an alternative way to input data, using a text file. Simply provide a text file, with each
 line containing:
@@ -19,7 +20,14 @@ line containing:
     /data/imgs/img_002.jpg,215,312,279,391,cat
 
     The classes will be inferred from the file. To use the simple parser instead of the default pascal voc style parser,
-    use the command line option `-o simple`. For example `python train_frcnn.py -o simple -p my_data.txt`.
+    use the command line option `-o simple`. For example `python train_frcnn.py -o simple -p my_data.txt`.  
+    
+    If you have multiple objects in the same picture, you have to add the same filepath each time with a different object in the text file, for example :
+        
+    /data/imgs/img_001.jpg,837,346,981,456,cow  
+    
+    /data/imgs/img_001.jpg,215,312,279,391,cat  
+
 
 - Running `train_frcnn.py` will write weights to disk to an hdf5 file, as well as all the setting of the training run to a `pickle` file. These
 settings can then be loaded by `test_frcnn.py` for any testing.
@@ -50,8 +58,5 @@ ISSUES:
 - If you get this error:
 `ValueError: There is a negative shape in the graph!`    
     than update keras to the newest version
-
-- Make sure to use `python2`, not `python3`. If you get this error:
-`TypeError: unorderable types: dict() < dict()` you are using python3
 
 - If you run out of memory, try reducing the number of ROIs that are processed simultaneously. Try passing a lower `-n` to `train_frcnn.py`. Alternatively, try reducing the image size from the default value of 600 (this setting is found in `config.py`.

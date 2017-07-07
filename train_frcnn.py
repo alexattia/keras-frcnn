@@ -84,8 +84,6 @@ with open(config_output_filename, 'wb') as config_f:
 
 random.shuffle(all_imgs)
 
-num_imgs = len(all_imgs)
-
 train_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
 val_imgs = [s for s in all_imgs if s['imageset'] == 'test']
 
@@ -146,7 +144,6 @@ start_time = time.time()
 
 best_loss = np.Inf
 
-class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 
